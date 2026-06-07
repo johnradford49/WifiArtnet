@@ -23,7 +23,7 @@ public:
   WiFiManager();
   
   // Initialize and start captive portal if needed
-  bool begin(unsigned long timeoutMs = 120000);
+  bool begin(unsigned long timeoutMs = 600000);
   
   // Get stored credentials
   String getSSID();

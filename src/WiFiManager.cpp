@@ -48,7 +48,7 @@ bool WiFiManager::begin(unsigned long timeoutMs) {
   }
   
   Serial.println("[WiFiManager] Access point is ready for connections.");
-  Serial.println("[WiFiManager] Connect to 'AirDMX-Setup' and browse to 192.168.4.1");
+  Serial.println("[WiFiManager] Connect to 'AirDMX-Setup' and browse to 192.168.10.1");
   Serial.println("[WiFiManager] Waiting for user to configure WiFi...");
   Serial.print("[WiFiManager] Waiting for up to ");
   Serial.print(timeoutMs / 1000);
@@ -164,7 +164,7 @@ void WiFiManager::startAP() {
   delay(100);
   
   Serial.println("[WiFiManager] Configuring AP IP...");
-  IPAddress apIP(192, 168, 4, 1);
+  IPAddress apIP(192, 168, 10, 1);
   bool ipConfigured = WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
   Serial.print("[WiFiManager] AP IP configured: ");
   Serial.println(ipConfigured ? "SUCCESS" : "FAILED");
@@ -173,7 +173,7 @@ void WiFiManager::startAP() {
   Serial.println("[WiFiManager] Access Point started");
   Serial.println("[WiFiManager] SSID: AirDMX-Setup");
   Serial.println("[WiFiManager] Password: airdmx123");
-  Serial.println("[WiFiManager] IP Address: 192.168.4.1");
+  Serial.println("[WiFiManager] IP Address: 192.168.10.1");
   Serial.println("========================================\n");
   
   IPAddress apAddress = WiFi.softAPIP();
