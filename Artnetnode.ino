@@ -4,7 +4,7 @@
   Receives Art-Net DMX data over WiFi and sends it out via RS485
 */
 
-#include "ArtnetnodeWifi.h"
+#include <ArtnetnodeWifi.h>
 
 // Create the ArtNet node
 ArtnetnodeWifi artnet;
