@@ -1,3 +1,4 @@
 {
-  "idf.currentSetup": "C:\\Users\\john-\\esp\\esp-idf"
+  "idf.currentSetup": "C:\\Users\\john-\\esp\\esp-idf",
+  "idf.portWin": "COM6"
 }
