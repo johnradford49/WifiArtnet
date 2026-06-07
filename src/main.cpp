@@ -5,13 +5,13 @@
 */
 
 #include <ArtnetnodeWifi.h>
+#include <WiFiManager.h>
 
 // Create the ArtNet node
 ArtnetnodeWifi artnet;
 
-// WiFi credentials
-const char* ssid = "YOUR_SSID";
-const char* password = "YOUR_PASSWORD";
+// Create WiFi Manager
+WiFiManager wifiManager;
 
 void handleDMXData() {
   // Get the DMX frame data
@@ -32,19 +32,15 @@ void setup() {
   
   Serial.println("\n\nStarting AirDMX ArtNet Node...");
   
-  // Connect to WiFi
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-    delay(500);
-    Serial.print(".");
-    attempts++;
+  // Initialize WiFi with captive portal
+  // Timeout after 2 minutes (120000ms) of waiting for configuration
+  if (!wifiManager.begin(120000)) {
+    Serial.println("Failed to connect to WiFi within timeout period");
+    // Continue anyway - may reconnect automatically
   }
   
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi Connected!");
+  if (wifiManager.isConnected()) {
+    Serial.println("WiFi Connected!");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
     
@@ -58,11 +54,19 @@ void setup() {
     
     Serial.println("ArtNet Node initialized");
   } else {
-    Serial.println("\nFailed to connect to WiFi");
+    Serial.println("WiFi not connected. Will attempt to reconnect.");
   }
 }
 
 void loop() {
+  // Check if WiFi is still connected
+  if (!wifiManager.isConnected()) {
+    Serial.println("WiFi disconnected, attempting to reconnect...");
+    WiFi.reconnect();
+    delay(5000);
+    return;
+  }
+  
   // Read incoming Art-Net packets
   uint16_t opcode = artnet.read();
   
