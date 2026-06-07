@@ -42,7 +42,13 @@ bool WiFiManager::begin(unsigned long timeoutMs) {
   Serial.println("[WiFiManager] Setting up web server...");
   setupWebServer();
   
+  if (!server) {
+    Serial.println("[WiFiManager] ERROR: Server allocation failed! Aborting.");
+    return false;
+  }
+  
   Serial.println("[WiFiManager] Access point is ready for connections.");
+  Serial.println("[WiFiManager] Connect to 'AirDMX-Setup' and browse to 192.168.4.1");
   Serial.println("[WiFiManager] Waiting for user to configure WiFi...");
   Serial.print("[WiFiManager] Waiting for up to ");
   Serial.print(timeoutMs / 1000);
@@ -54,8 +60,12 @@ bool WiFiManager::begin(unsigned long timeoutMs) {
   int logIntervalMs = 5000; // Log every 5 seconds
   
   while (!isConnected() && (millis() - startTime) < timeoutMs) {
+    // Handle client requests
     if (server) {
       server->handleClient();
+#ifdef ESP8266
+      yield();
+#endif
     }
     
     // Log progress every 5 seconds
@@ -64,6 +74,10 @@ bool WiFiManager::begin(unsigned long timeoutMs) {
       Serial.print("[WiFiManager] Still waiting... ");
       Serial.print((currentTime - startTime) / 1000);
       Serial.println(" seconds elapsed");
+      
+      Serial.print("[WiFiManager] AP clients connected: ");
+      Serial.println(WiFi.softAPgetStationNum());
+      
       lastLogTime = currentTime;
     }
     
@@ -185,6 +199,9 @@ void WiFiManager::setupWebServer() {
     return;
   }
   
+  Serial.print("[WiFiManager] Free heap before route setup: ");
+  Serial.println(ESP.getFreeHeap());
+  
   Serial.println("[WiFiManager] Setting up route handlers...");
   server->on("/", [this]() { handleRoot(); });
   server->on("/scan", [this]() { handleScan(); });
@@ -193,70 +210,36 @@ void WiFiManager::setupWebServer() {
   
   Serial.println("[WiFiManager] Starting web server...");
   server->begin();
+  
+  Serial.print("[WiFiManager] Free heap after server start: ");
+  Serial.println(ESP.getFreeHeap());
+  
   Serial.println("[WiFiManager] Web server started on port 80");
 }
 
 void WiFiManager::handleRoot() {
   Serial.println("[WiFiManager] Handling / request");
   
-  String html = R"(
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>AirDMX WiFi Setup</title>
-      <style>
-        body { font-family: Arial; margin: 20px; background: #f0f0f0; }
-        .container { background: white; padding: 20px; border-radius: 5px; max-width: 400px; margin: 0 auto; }
-        h1 { color: #333; }
-        input, select { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
-        button:hover { background: #45a049; }
-        #networks { max-height: 200px; overflow-y: auto; }
-        .network { padding: 8px; margin: 5px 0; background: #f9f9f9; border: 1px solid #ddd; border-radius: 3px; cursor: pointer; }
-        .network:hover { background: #f0f0f0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>AirDMX WiFi Configuration</h1>
-        <form method="POST" action="/save">
-          <label for="ssid">WiFi Network:</label>
-          <div id="networks">Loading networks...</div>
-          <input type="text" id="ssid" name="ssid" placeholder="Or enter SSID manually" required>
-          
-          <label for="password">Password:</label>
-          <input type="password" id="password" name="password" placeholder="WiFi password" required>
-          
-          <button type="submit">Connect</button>
-        </form>
-      </div>
-      
-      <script>
-        function loadNetworks() {
-          fetch('/scan')
-            .then(r => r.json())
-            .then(data => {
-              const networks = document.getElementById('networks');
-              networks.innerHTML = '';
-              data.forEach(network => {
-                const div = document.createElement('div');
-                div.className = 'network';
-                div.textContent = network.ssid + ' (Signal: ' + network.rssi + ' dBm)';
-                div.onclick = () => {
-                  document.getElementById('ssid').value = network.ssid;
-                  document.getElementById('password').focus();
-                };
-                networks.appendChild(div);
-              });
-            });
-        }
-        loadNetworks();
-      </script>
-    </body>
-    </html>
-  )";
+  String html = "<!DOCTYPE html><html><head><title>AirDMX Setup</title><style>";
+  html += "body{font-family:Arial;margin:20px;background:#f0f0f0}";
+  html += ".container{background:white;padding:20px;border-radius:5px;max-width:400px;margin:0 auto}";
+  html += "h1{color:#333}input,button{width:100%;padding:10px;margin:10px 0;box-sizing:border-box}";
+  html += "button{background:#4CAF50;color:white;border:none;border-radius:4px;cursor:pointer}";
+  html += ".network{padding:8px;margin:5px 0;background:#f9f9f9;border:1px solid #ddd;border-radius:3px;cursor:pointer}";
+  html += ".network:hover{background:#f0f0f0}</style></head><body>";
+  html += "<div class=\"container\"><h1>AirDMX WiFi</h1><p>Connect to a WiFi network:</p>";
+  html += "<div id=\"networks\" style=\"border:1px solid #ddd;padding:10px;max-height:200px;overflow-y:auto\">";
+  html += "Scanning...</div><form method=\"POST\" action=\"/save\">";
+  html += "<input type=\"text\" id=\"ssid\" name=\"ssid\" placeholder=\"SSID\" required>";
+  html += "<input type=\"password\" id=\"password\" name=\"password\" placeholder=\"Password\" required>";
+  html += "<button type=\"submit\">Connect</button></form></div>";
+  html += "<script>fetch('/scan').then(r=>r.json()).then(d=>{let h='';d.forEach(n=>{";
+  html += "h+='<div class=\"network\" onclick=\"document.getElementById(\\'ssid\\').value=\\''+n.ssid+'\\';document.getElementById(\\'password\\').focus()\">'";
+  html += "+n.ssid+'</div>'});document.getElementById('networks').innerHTML=h});";
+  html += "</script></body></html>";
   
   server->send(200, "text/html", html);
+  Serial.println("[WiFiManager] Root response sent");
 }
 
 void WiFiManager::handleScan() {
@@ -273,19 +256,18 @@ void WiFiManager::handleScan() {
     if (i > 0) json += ",";
     String ssidName = WiFi.SSID(i);
     int rssi = WiFi.RSSI(i);
-    json += "{\"ssid\":\"" + ssidName + "\",\"rssi\":" + String(rssi) + "}";
     
-    Serial.print("[WiFiManager]   Network ");
-    Serial.print(i);
-    Serial.print(": ");
-    Serial.print(ssidName);
-    Serial.print(" (RSSI: ");
-    Serial.print(rssi);
-    Serial.println(")");
+    // Escape quotes in SSID
+    ssidName.replace("\"", "");
+    
+    json += "{\"ssid\":\"" + ssidName + "\",\"rssi\":" + String(rssi) + "}";
   }
   json += "]";
   
   server->send(200, "application/json", json);
+  Serial.print("[WiFiManager] Scan response sent: ");
+  Serial.print(json.length());
+  Serial.println(" bytes");
 }
 
 void WiFiManager::handleSave() {
@@ -307,27 +289,12 @@ void WiFiManager::handleSave() {
   
   saveCredentials(newSSID, newPassword);
   
-  String html = R"(
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Connecting...</title>
-      <style>
-        body { font-family: Arial; text-align: center; margin-top: 50px; }
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-      </style>
-    </head>
-    <body>
-      <h1>Connecting to WiFi...</h1>
-      <p>Attempting to connect to: <strong>)" + newSSID + R"(</strong></p>
-      <div class="spinner"></div>
-      <p>This page will close when the connection is established.</p>
-    </body>
-    </html>
-  )";
+  String response = "<html><body><h1>Connecting...</h1>";
+  response += "<p>Attempting to connect to: <b>" + newSSID + "</b></p>";
+  response += "<p>Please wait...</p></body></html>";
   
-  server->send(200, "text/html", html);
+  server->send(200, "text/html", response);
+  Serial.println("[WiFiManager] Save response sent");
   
   // Connect to WiFi
   Serial.println("[WiFiManager] Attempting WiFi connection...");
@@ -371,7 +338,7 @@ bool WiFiManager::connectToWiFi(unsigned long timeoutMs) {
     int currentStatus = WiFi.status();
     if (currentStatus != lastStatus) {
       Serial.println();
-      Serial.print("[WiFiManager] WiFi status changed to: ");
+      Serial.print("[WiFiManager] WiFi status: ");
       Serial.println(currentStatus);
       lastStatus = currentStatus;
       Serial.print("[WiFiManager] Connecting");
@@ -380,6 +347,9 @@ bool WiFiManager::connectToWiFi(unsigned long timeoutMs) {
     if (server) {
       server->handleClient();
     }
+#ifdef ESP8266
+    yield();
+#endif
   }
   
   Serial.println();
@@ -400,14 +370,6 @@ bool WiFiManager::connectToWiFi(unsigned long timeoutMs) {
     return true;
   } else {
     Serial.println("[WiFiManager] FAILED - WiFi connection failed");
-    Serial.println("[WiFiManager] Status codes:");
-    Serial.println("[WiFiManager]   0 = WL_IDLE_STATUS");
-    Serial.println("[WiFiManager]   1 = WL_NO_SSID_AVAIL");
-    Serial.println("[WiFiManager]   2 = WL_SCAN_COMPLETED");
-    Serial.println("[WiFiManager]   3 = WL_CONNECTED");
-    Serial.println("[WiFiManager]   4 = WL_CONNECT_FAILED");
-    Serial.println("[WiFiManager]   5 = WL_CONNECTION_LOST");
-    Serial.println("[WiFiManager]   6 = WL_DISCONNECTED");
     return false;
   }
 }
