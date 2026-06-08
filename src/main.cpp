@@ -6,6 +6,7 @@
 
 #include <ArtnetnodeWifi.h>
 #include <WiFiManager.h>
+#define DMX_LED_PIN 0   // GPIO0, active LOW
 
 // Create the ArtNet node
 ArtnetnodeWifi artnet;
@@ -104,6 +105,9 @@ void setup() {
   Serial.println("   Setup Complete - Entering Main Loop");
   Serial.println("========================================");
   Serial.println();
+
+pinMode(DMX_LED_PIN, OUTPUT);
+digitalWrite(DMX_LED_PIN, HIGH);  // LED off (active low)
 }
 
 void loop() {
@@ -125,8 +129,11 @@ void loop() {
   uint16_t opcode = artnet.read();
   
   if (opcode == OpDmx) {
+    // Flash LED on DMX send
+    digitalWrite(DMX_LED_PIN, LOW);   // LED ON
     // Process DMX data
     handleDMXData();
+    digitalWrite(DMX_LED_PIN, HIGH);  // LED OFF
   }
   
   delay(10);
