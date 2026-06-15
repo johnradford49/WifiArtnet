@@ -122,8 +122,4 @@ void loop() {
     sendDMX(dmxData, 512);            // Send full 512-channel universe
     digitalWrite(DMX_LED_PIN, HIGH);  // LED OFF
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> ad74c9bc6b46b2dc7a22e42716c09d2cc7d8a6f2
