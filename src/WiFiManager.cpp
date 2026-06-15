@@ -57,7 +57,7 @@ bool WiFiManager::begin(unsigned long timeoutMs) {
   // Wait for user to configure WiFi
   unsigned long startTime = millis();
   unsigned long lastLogTime = startTime;
-  int logIntervalMs = 5000; // Log every 5 seconds
+  unsigned long logIntervalMs = 5000; // Log every 5 seconds
   
   while (!isConnected() && (millis() - startTime) < timeoutMs) {
     // Handle client requests
@@ -399,7 +399,7 @@ void WiFiManager::writeStringToEEPROM(int address, String data, int maxLen) {
   Serial.println(data.length());
   
   for (int i = 0; i < maxLen; i++) {
-    if (i < data.length()) {
+    if ((unsigned int)i < data.length()) {
       EEPROM.write(address + i, data[i]);
     } else {
       EEPROM.write(address + i, 0);
@@ -413,6 +413,3 @@ String WiFiManager::readStringFromEEPROM(int address, int maxLen) {
     char c = EEPROM.read(address + i);
     if (c == 0) break;
     result += c;
-  }
-  return result;
-}
