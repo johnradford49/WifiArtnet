@@ -5,14 +5,15 @@
 
   Hardware:
   - ESP-01: GPIO0 = LED (active LOW via 3.9K to VCC)
-             GPIO1 = UART0 TX  -> SN75176 pin 4 (DI)
-             GPIO3 = UART0 RX  <- SN75176 pin 1 (RO)  [unused for DMX output]
-  - SN75176: DE (pin 3) and RE (pin 2) assumed tied for transmit-only
-             (DE=HIGH always, RE=HIGH always)
+             GPIO1 = UART0 TX -> SN75176 pin 4 (DI)
+             GPIO3 = UART0 RX  [unused for DMX output]
+  - SN75176: DE pin 3 pulled HIGH (driver always on)
+             RE pin 2 pulled HIGH (receiver disabled)
 
   First-boot WiFi setup:
-    Connect to AP "AirDMX-Setup" (password: airdmx123), browse to 192.168.10.1
-    Enter your WiFi credentials — saved to EEPROM for future boots.
+    Connect to AP "AirDMX-Setup" (password: airdmx123)
+    Browse to 192.168.10.1, enter WiFi credentials.
+    Saved to EEPROM for future boots.
 
   LED behaviour:
     1 blink  = booting
@@ -23,26 +24,30 @@
 #include <ArtnetnodeWifi.h>
 #include <WiFiManager.h>
 
-#define DMX_LED_PIN  0    // GPIO0, active LOW
+#define DMX_LED_PIN 0   // GPIO0, active LOW
 
 ArtnetnodeWifi artnet;
-WiFiManager    wifiManager;
+WiFiManager wifiManager;
 
 // ---------------------------------------------------------------------------
 // Send one DMX frame via UART0 -> SN75176 RS485 transceiver
 //
-// DMX512 frame structure:
-//   BREAK  : TX line held LOW for >= 92 µs  (we use 176 µs)
-//   MAB    : TX line HIGH for >= 12 µs
-//   Start  : 0x00 start code
-//   Data   : up to 512 channel bytes at 250 kbaud, 8N2
+// DMX512 frame:
+//   BREAK : TX line LOW for >= 92 us  (we use 176 us)
+//   MAB   : TX line HIGH for >= 12 us
+//   Byte 0: 0x00 start code
+//   Data  : up to 512 channel bytes at 250 kbaud, 8N2
 // ---------------------------------------------------------------------------
 void sendDMX(uint8_t* data, uint16_t length) {
-  // --- Generate BREAK ---
-  // Take direct control of GPIO1 (UART TX pin) to pull it low
+  // Generate BREAK: take direct control of GPIO1 (UART TX pin)
   pinMode(1, OUTPUT);
   digitalWrite(1, LOW);
-  delayMicroseconds(176);   // BREAK duration
+  delayMicroseconds(176);
 
-  // --- Mark After Break (MAB) ---
-  digitalWrite(1, HI
+  // Mark After Break
+  digitalWrite(1, HIGH);
+  delayMicroseconds(12);
+
+  // Restore UART and send DMX frame
+  Serial.begin(250000, SERIAL_8N2);
+  Serial.write((uint8
