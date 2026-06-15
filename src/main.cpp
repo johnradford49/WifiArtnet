@@ -10,24 +10,21 @@
   - SN75176: DE pin 3 pulled HIGH (driver always on)
              RE pin 2 pulled HIGH (receiver disabled)
 
-  First-boot WiFi setup:
-    Connect to AP "AirDMX-Setup" (password: airdmx123)
-    Browse to 192.168.10.1, enter WiFi credentials.
-    Saved to EEPROM for future boots.
+  WiFi credentials are stored in src/wifi_credentials.h (excluded from git).
 
   LED behaviour:
-    1 blink  = booting
-    3 blinks = WiFi connected, Art-Net ready
-    Flashes  = DMX frame being sent
+    Slow blink (3x) = connecting to WiFi
+    Fast blink (3x) = WiFi connected, Art-Net ready
+    Flashes         = DMX frame being sent
 */
 
+#include <ESP8266WiFi.h>
 #include <ArtnetnodeWifi.h>
-#include <WiFiManager.h>
+#include "wifi_credentials.h"
 
 #define DMX_LED_PIN 0   // GPIO0, active LOW
 
 ArtnetnodeWifi artnet;
-WiFiManager wifiManager;
 
 // ---------------------------------------------------------------------------
 // Send one DMX frame via UART0 -> SN75176 RS485 transceiver
@@ -51,75 +48,4 @@ void sendDMX(uint8_t* data, uint16_t length) {
   // Restore UART and send DMX frame
   Serial.begin(250000, SERIAL_8N2);
   Serial.write((uint8_t)0x00);  // DMX start code
-  Serial.write(data, length);
-  Serial.flush();
-}
-
-// ---------------------------------------------------------------------------
-// setup
-// ---------------------------------------------------------------------------
-void setup() {
-  // LED off initially (active LOW -> HIGH = off)
-  pinMode(DMX_LED_PIN, OUTPUT);
-  digitalWrite(DMX_LED_PIN, HIGH);
-
-  // Single blink = booting
-  digitalWrite(DMX_LED_PIN, LOW);
-  delay(200);
-  digitalWrite(DMX_LED_PIN, HIGH);
-  delay(200);
-
-  // Serial at 115200 for WiFiManager debug output during setup
-  Serial.begin(115200);
-  delay(100);
-
-  // Connect to WiFi (captive portal on first boot)
-  wifiManager.begin();
-
-  // Switch UART to DMX mode now that WiFi is up
-  Serial.begin(250000, SERIAL_8N2);
-
-  // Bind Art-Net UDP socket after WiFi is connected
-  artnet.begin("AirDMX");
-  artnet.setName("AirDMX Node");
-  artnet.setNumPorts(1);
-  artnet.setStartingUniverse(0);
-  artnet.enableDMXOutput(0);
-  artnet.setDMXOutput(0, 0, 0);  // output 0, UART 0, Universe 0
-
-  // Triple blink = ready
-  for (int i = 0; i < 3; i++) {
-    digitalWrite(DMX_LED_PIN, LOW);
-    delay(80);
-    digitalWrite(DMX_LED_PIN, HIGH);
-    delay(80);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// loop
-// ---------------------------------------------------------------------------
-void loop() {
-  // Reconnect WiFi if dropped
-  if (!wifiManager.isConnected()) {
-    static unsigned long lastReconnect = 0;
-    if (millis() - lastReconnect > 5000) {
-      WiFi.reconnect();
-      lastReconnect = millis();
-    }
-    delay(100);
-    return;
-  }
-
-  // Poll for incoming Art-Net packets
-  uint16_t opcode = artnet.read();
-
-  if (opcode == OpDmx) {
-    uint8_t* dmxData = artnet.getDmxFrame();
-
-    // Flash LED to show DMX activity
-    digitalWrite(DMX_LED_PIN, LOW);   // LED ON
-    sendDMX(dmxData, 512);            // Send full 512-channel universe
-    digitalWrite(DMX_LED_PIN, HIGH);  // LED OFF
-  }
-}
+  Serial.write(data, length
